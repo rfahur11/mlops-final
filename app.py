@@ -6,14 +6,9 @@ import logging
 
 import gradio as gr
 import tensorflow as tf
-from huggingface_hub import snapshot_download, hf_hub_download
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Model Hub repo ID (owner/repo-name)
-MODEL_REPO_ID = os.environ.get("MODEL_REPO_ID", "rfahrur11/ecommerce-churn-model")
-MODEL_REVISION = os.environ.get("MODEL_REVISION", "main")
 
 
 FLOAT_FEATURES = [
@@ -69,31 +64,32 @@ def latest_model_dir(base_dir: Path) -> Path:
     return base_dir
 
 
+def resolve_saved_model_dir(model_dir: Path) -> Path:
+    """Return the actual SavedModel directory to load."""
+    if (model_dir / "saved_model.pb").exists():
+        return model_dir
+    if (model_dir / "SavedModel" / "saved_model.pb").exists():
+        return model_dir / "SavedModel"
+    if (model_dir / "SavedModel").is_dir():
+        return model_dir / "SavedModel"
+    return latest_model_dir(model_dir)
+
+
 def build_model_signature():
-    """Load model from HF Model Hub (with fallback to local)."""
-    model_dir = None
+    """Load model from local serving_model directory."""
+    model_root = Path(__file__).resolve().parent / "serving_model" / "rfahrur6045-pipeline"
     
-    # Try loading from HF Model Hub first
-    try:
-        logger.info(f"Attempting to load model from {MODEL_REPO_ID}...")
-        model_dir = snapshot_download(
-            repo_id=MODEL_REPO_ID,
-            revision=MODEL_REVISION,
-            cache_dir="/tmp/hf_models",
+    if not model_root.exists():
+        raise RuntimeError(
+            f"Model directory not found at {model_root}. "
+            "Please ensure serving_model/rfahrur6045-pipeline/ exists."
         )
-        logger.info(f"Successfully downloaded model to {model_dir}")
-    except Exception as e:
-        logger.warning(f"Failed to load from Model Hub: {e}")
-        logger.info("Falling back to local model directory...")
-        # Fallback to local model
-        model_root = Path(__file__).resolve().parent / "serving_model" / "rfahrur6045-pipeline"
-        if model_root.exists():
-            model_dir = latest_model_dir(model_root)
-            logger.info(f"Using local model from {model_dir}")
-        else:
-            raise RuntimeError(
-                "No model found. Please set MODEL_REPO_ID or ensure serving_model/ exists locally."
-            )
+    
+    # Find latest model version
+    model_dir = latest_model_dir(model_root)
+    logger.info(f"Loading model from {model_dir}")
+    
+    model_dir = resolve_saved_model_dir(Path(model_dir))
     
     model = tf.saved_model.load(str(model_dir))
     signature = model.signatures.get("serving_json")
