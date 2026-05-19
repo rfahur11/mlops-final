@@ -6,14 +6,9 @@ import logging
 
 import gradio as gr
 import tensorflow as tf
-from huggingface_hub import snapshot_download
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Model Hub configuration
-MODEL_REPO_ID = "rfahur11/ecommerce-churn-model"
-MODEL_REVISION = "main"
 
 
 FLOAT_FEATURES = [
@@ -81,30 +76,21 @@ def resolve_saved_model_dir(model_dir: Path) -> Path:
 
 
 def build_model_signature():
-    """Load model from HF Model Hub or local serving_model directory."""
-    # First try local folder (for local testing)
-    local_model_root = Path(__file__).resolve().parent / "serving_model" / "rfahrur6045-pipeline"
-    
-    if local_model_root.exists():
-        logger.info(f"Loading model from local folder: {local_model_root}")
-        model_dir = latest_model_dir(local_model_root)
-        model_dir = resolve_saved_model_dir(Path(model_dir))
-    else:
-        # Download from HF Model Hub (for HF Spaces)
-        logger.info(f"Downloading model from {MODEL_REPO_ID}...")
-        try:
-            model_dir = snapshot_download(
-                repo_id=MODEL_REPO_ID,
-                revision=MODEL_REVISION,
-                cache_dir="/tmp/hf_cache",
-                repo_type="model",
-            )
-            logger.info(f"Downloaded model to {model_dir}")
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to load model from {MODEL_REPO_ID}: {str(e)}. "
-                "Ensure the repository exists and is accessible."
-            ) from e
+    """Load model from HF Model Hub."""
+    logger.info(f"Downloading model from {MODEL_REPO_ID}...")
+    try:
+        model_dir = snapshot_download(
+            repo_id=MODEL_REPO_ID,
+            revision=MODEL_REVISION,
+            cache_dir="/tmp/hf_cache",
+            repo_type="model",
+        )
+        logger.info(f"Downloaded model to {model_dir}")
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load model from {MODEL_REPO_ID}: {str(e)}. "
+            "Ensure the repository exists and is accessible."
+        ) from e
     
     model = tf.saved_model.load(str(model_dir))
     signature = model.signatures.get("serving_json")
