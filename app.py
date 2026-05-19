@@ -6,9 +6,14 @@ import logging
 
 import gradio as gr
 import tensorflow as tf
+from huggingface_hub import snapshot_download
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+MODEL_REPO_ID = "rfahur11/ecommerce-churn-model"
+MODEL_REVISION = "main"
 
 
 FLOAT_FEATURES = [
@@ -92,6 +97,7 @@ def build_model_signature():
             "Ensure the repository exists and is accessible."
         ) from e
     
+    model_dir = resolve_saved_model_dir(Path(model_dir))
     model = tf.saved_model.load(str(model_dir))
     signature = model.signatures.get("serving_json")
     if signature is None:
