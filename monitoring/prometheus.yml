@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+  external_labels:
+    monitor: 'rfahrur6045-churn-monitor'
+
+# Rule files untuk alerting
+rule_files:
+  - "alert_rules.yml"
+
+# Konfigurasi Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Scrape configs
+scrape_configs:
+  # Monitor TF Serving (local / Railway)
+  - job_name: 'tensorflow-serving'
+    static_configs:
+      - targets: ['localhost:8501']
+    metrics_path: '/monitoring/prometheus/metrics'
+    scrape_interval: 15s
+
+  # Monitor Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Monitor sistem (node exporter)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']

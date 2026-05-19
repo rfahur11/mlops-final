@@ -1,0 +1,59 @@
+{
+  "evalConfig": {
+    "modelSpecs": [
+      {
+        "name": "candidate",
+        "labelKey": "Churn"
+      },
+      {
+        "name": "baseline",
+        "labelKey": "Churn",
+        "isBaseline": true
+      }
+    ],
+    "slicingSpecs": [
+      {}
+    ],
+    "metricsSpecs": [
+      {
+        "metrics": [
+          {
+            "className": "BinaryAccuracy",
+            "threshold": {
+              "valueThreshold": {
+                "lowerBound": 0.8
+              },
+              "changeThreshold": {
+                "absolute": -0.01,
+                "direction": "HIGHER_IS_BETTER"
+              }
+            }
+          },
+          {
+            "className": "AUC",
+            "threshold": {
+              "valueThreshold": {
+                "lowerBound": 0.85
+              },
+              "changeThreshold": {
+                "absolute": -0.01,
+                "direction": "HIGHER_IS_BETTER"
+              }
+            }
+          }
+        ],
+        "modelNames": [
+          "candidate",
+          "baseline"
+        ]
+      }
+    ]
+  },
+  "version": "0.45.0",
+  "dataLocation": "<user provided PCollection>",
+  "fileFormat": "<unknown>",
+  "modelLocations": {
+    "baseline": "/workspace/pipelines/rfahrur6045-pipeline/Trainer/model/10/Format-Serving",
+    "candidate": "/workspace/pipelines/rfahrur6045-pipeline/Trainer/model/20/Format-Serving"
+  }
+}

@@ -1,0 +1,32 @@
+groups:
+  - name: tensorflow_serving_alerts
+    rules:
+      # Alert jika TF Serving down
+      - alert: TFServingDown
+        expr: up{job="tensorflow-serving"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "TensorFlow Serving is down"
+          description: "TF Serving telah down selama lebih dari 1 menit."
+
+      # Alert jika latency tinggi (>500ms)
+      - alert: HighPredictionLatency
+        expr: tensorflow_serving_request_latency_count > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prediction latency is high"
+          description: "Latency prediksi melebihi 500ms selama 5 menit terakhir."
+
+      # Alert jika error rate tinggi (>5%)
+      - alert: HighErrorRate
+        expr: rate(tensorflow_serving_request_count{status="error"}[5m]) / rate(tensorflow_serving_request_count[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High prediction error rate"
+          description: "Error rate prediksi melebihi 5% dalam 5 menit terakhir."

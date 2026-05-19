@@ -1,0 +1,52 @@
+{
+  "evalConfig": {
+    "modelSpecs": [
+      {
+        "labelKey": "Churn"
+      }
+    ],
+    "slicingSpecs": [
+      {}
+    ],
+    "metricsSpecs": [
+      {
+        "metrics": [
+          {
+            "className": "BinaryAccuracy",
+            "threshold": {
+              "valueThreshold": {
+                "lowerBound": 0.8
+              }
+            }
+          },
+          {
+            "className": "AUC",
+            "threshold": {
+              "valueThreshold": {
+                "lowerBound": 0.85
+              }
+            }
+          },
+          {
+            "className": "BinaryCrossentropy"
+          },
+          {
+            "className": "Precision"
+          },
+          {
+            "className": "Recall"
+          }
+        ],
+        "modelNames": [
+          ""
+        ]
+      }
+    ]
+  },
+  "version": "0.45.0",
+  "dataLocation": "<user provided PCollection>",
+  "fileFormat": "<unknown>",
+  "modelLocations": {
+    "": "/workspace/pipelines/rfahrur6045-pipeline/Trainer/model/10/Format-Serving"
+  }
+}

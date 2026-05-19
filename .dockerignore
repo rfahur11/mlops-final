@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python cache
+__pycache__
+*.py[cod]
+*.egg-info
+.eggs
+
+# Jupyter checkpoints
+.ipynb_checkpoints
+
+# Pipeline artifacts (dibuat saat runtime)
+pipelines/
+metadata/
+serving_model/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
