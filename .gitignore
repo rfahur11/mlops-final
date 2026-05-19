@@ -1,0 +1,33 @@
+# Large model directories (use Model Hub instead)
+serving_model/
+model/
+pipelines/
+
+# Development & notebooks
+*.ipynb_checkpoints/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+upload.py
+upload_model.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.log
