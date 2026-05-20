@@ -1,5 +1,4 @@
-# Large model directories (use Model Hub instead)
-serving_model/
+# Large model directories
 model/
 pipelines/
 
