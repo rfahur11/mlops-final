@@ -139,7 +139,7 @@ def run_fn(fn_args: FnArgs):
                 tf.TensorSpec(shape=[None], dtype=tf.string, name='examples')
             ),
             'serving_json': _get_serve_json_fn(serving_model, raw_feature_spec).get_concrete_function(
-                {
+                **{
                     k: tf.TensorSpec(shape=[None], dtype=spec.dtype, name=k)
                     for k, spec in raw_feature_spec.items()
                 }
@@ -162,14 +162,13 @@ def _get_serve_fn(model):
 
 
 def _get_serve_json_fn(model, raw_feature_spec):
-    input_signature = {
-        k: tf.TensorSpec(shape=[None], dtype=spec.dtype, name=k)
-        for k, spec in raw_feature_spec.items()
-    }
-
-    @tf.function(input_signature=input_signature)
+    @tf.function
     def serve_json(**kwargs):
         # kwargs contains all named feature inputs: {"Tenure": ..., "CityTier": ..., etc.}
-        return {"output": model(kwargs, training=False)}
+        normalized_inputs = {
+            key: tf.expand_dims(value, -1) if value.shape.rank == 1 else value
+            for key, value in kwargs.items()
+        }
+        return {"output": model(normalized_inputs, training=False)}
 
     return serve_json
