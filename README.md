@@ -1,3 +1,16 @@
+---
+title: Mlops Final
+emoji: 🔥
+colorFrom: blue
+colorTo: green
+sdk: gradio
+sdk_version: 6.14.0
+python_version: 3.11.9
+app_file: app.py
+pinned: false
+license: mit
+---
+
 # 🛒 E-Commerce Customer Churn Prediction - MLOps Pipeline
 
 **Nama:** rfahrur6045  

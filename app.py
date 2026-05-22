@@ -1,19 +1,22 @@
 """Hugging Face Spaces app for e-commerce churn prediction."""
 
+import functools
 from pathlib import Path
 import os
 import logging
 
+os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
+
 import gradio as gr
 import tensorflow as tf
-from huggingface_hub import snapshot_download
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-MODEL_REPO_ID = "rfahur11/ecommerce-churn-model"
-MODEL_REVISION = "main"
+SPACE_ROOT = Path(__file__).resolve().parent
+DEFAULT_LOCAL_MODEL_DIR = SPACE_ROOT / "serving_model" / "rfahrur6045-pipeline"
+MODEL_LOCAL_DIR = Path(os.getenv("MODEL_LOCAL_DIR", str(DEFAULT_LOCAL_MODEL_DIR))).expanduser().resolve()
 
 
 FLOAT_FEATURES = [
@@ -80,32 +83,46 @@ def resolve_saved_model_dir(model_dir: Path) -> Path:
     return latest_model_dir(model_dir)
 
 
-def build_model_signature():
-    """Load model from HF Model Hub."""
-    logger.info(f"Downloading model from {MODEL_REPO_ID}...")
+def load_model_signature():
+    """Load model from the bundled local SavedModel."""
     try:
-        model_dir = snapshot_download(
-            repo_id=MODEL_REPO_ID,
-            revision=MODEL_REVISION,
-            cache_dir="/tmp/hf_cache",
-            repo_type="model",
-        )
-        logger.info(f"Downloaded model to {model_dir}")
+        model_dir = MODEL_LOCAL_DIR
+        logger.info(f"Loading model from local path {model_dir}...")
+
+        if not model_dir.exists():
+            raise FileNotFoundError(
+                f"Model directory not found at {model_dir}. "
+                "Make sure serving_model/ is included in the Space repository and not excluded by .dockerignore."
+            )
+
+        model_dir = resolve_saved_model_dir(model_dir)
+        model = tf.saved_model.load(str(model_dir))
+        signature = model.signatures.get("serving_json")
+        if signature is None:
+            signature = next(iter(model.signatures.values()))
+        return signature, model_dir
     except Exception as e:
         raise RuntimeError(
-            f"Failed to load model from {MODEL_REPO_ID}: {str(e)}. "
-            "Ensure the repository exists and is accessible."
+            f"Failed to load bundled model from {MODEL_LOCAL_DIR}: {str(e)}. "
+            "Ensure serving_model/ is present in the Space image."
         ) from e
-    
-    model_dir = resolve_saved_model_dir(Path(model_dir))
-    model = tf.saved_model.load(str(model_dir))
-    signature = model.signatures.get("serving_json")
-    if signature is None:
-        signature = next(iter(model.signatures.values()))
-    return signature, model_dir
 
 
-SIGNATURE, MODEL_DIR = build_model_signature()
+@functools.lru_cache(maxsize=1)
+def get_model_signature():
+    return load_model_signature()
+
+
+def extract_probability(result):
+    if isinstance(result, dict):
+        result = next(iter(result.values()))
+    tensor = tf.convert_to_tensor(result)
+    values = tensor.numpy()
+    if values.ndim == 0:
+        return float(values)
+    if values.ndim == 1:
+        return float(values[0])
+    return float(values[0][0])
 
 
 def predict_churn(
@@ -149,13 +166,22 @@ def predict_churn(
         "MaritalStatus": tf.constant([marital_status], dtype=tf.string),
     }
 
-    result = SIGNATURE(**payload)
-    probability = float(result["output"][0][0].numpy())
+    try:
+        signature, model_dir = get_model_signature()
+        result = signature(**payload)
+        probability = extract_probability(result)
+    except Exception as e:
+        return {
+            "error": str(e),
+            "probability": None,
+            "prediction": None,
+        }
+
     prediction = "Churn" if probability >= 0.5 else "Not Churn"
     return {
         "probability": round(probability, 4),
         "prediction": prediction,
-        "model_dir": str(MODEL_DIR),
+        "model_dir": str(model_dir),
     }
 
 

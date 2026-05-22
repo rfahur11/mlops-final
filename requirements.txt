@@ -4,7 +4,7 @@
 # ============================================================
 
 # Data manipulation
-pandas==1.5.3
+pandas==2.2.3
 numpy==1.23.5
 scikit-learn==1.2.2
 
@@ -23,3 +23,7 @@ pylint==2.17.4
 
 # Utilities
 future==0.18.3
+# Runtime for Hugging Face Spaces
+gradio>=3.36.0
+tensorflow>=2.12.0
+huggingface-hub>=0.15.0
