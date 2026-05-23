@@ -15,12 +15,23 @@ license: mit
 
 **Nama:** rfahrur6045  
 **Dataset:** E-Commerce Customer Churn  
-**Platform Cloud:** Railway  
+**Platform Cloud:** Huggingface 
 **Framework:** TensorFlow Extended (TFX) + Apache Beam
 
 ---
 
 ## 📋 Informasi Dataset
+
+Dataset yang digunakan adalah data tabular terstruktur untuk prediksi churn pelanggan e-commerce. Ruang lingkup datanya sebagai berikut:
+
+| Informasi | Detail |
+|---|---|
+| Jumlah data | 5.630 baris |
+| Jumlah fitur input | 18 fitur |
+| Fitur numerik | 13 |
+| Fitur kategorikal | 5 |
+| Fitur teks | Tidak ada |
+| Target | `Churn` |
 
 | Atribut | Detail |
 |---|---|
@@ -59,22 +70,24 @@ license: mit
 
 ## 🎯 Persoalan yang Ingin Diselesaikan
 
-**Customer churn** (hilangnya pelanggan) merupakan salah satu tantangan terbesar dalam bisnis e-commerce. Setiap pelanggan yang churn berarti kerugian pendapatan dan meningkatnya biaya akuisisi pelanggan baru (yang bisa 5-7x lebih mahal dari mempertahankan pelanggan lama).
+Customer churn adalah masalah bisnis yang langsung berdampak pada pendapatan, biaya akuisisi, dan efektivitas kampanye retensi. Jika pelanggan berisiko tinggi tidak terdeteksi sejak awal, perusahaan akan terus mengeluarkan biaya promosi yang tidak tepat sasaran dan kehilangan pelanggan yang sebenarnya masih bisa dipertahankan.
 
-**Permasalahan Bisnis:**
-- Perusahaan e-commerce kehilangan ~17% pelanggannya setiap periode
-- Tidak ada sistem otomatis untuk mengidentifikasi pelanggan yang berpotensi churn lebih awal
-- Tim marketing kesulitan menentukan target intervensi retensi yang tepat
+Karakteristik data pada kasus ini membuat masalahnya tidak sederhana: kombinasi fitur numerik dan kategorikal perlu diproses secara konsisten, sementara pola churn sering muncul dari interaksi non-linear antarfitur, bukan dari satu variabel saja. Karena itu, otomatisasi pipeline diperlukan agar proses training, validasi, dan deployment selalu berjalan dengan langkah yang sama, bisa diulang, dan tetap skalabel saat data bertambah.
 
-**Tujuan:**
-Membangun sistem prediksi churn yang akurat untuk mengidentifikasi pelanggan berisiko tinggi meninggalkan platform, sehingga tim bisnis dapat melakukan intervensi proaktif (diskon, program loyalitas, dll) sebelum pelanggan benar-benar pergi.
+**Tujuan utama:** membangun sistem yang mampu mengidentifikasi pelanggan berisiko churn secara konsisten sehingga tim bisnis dapat melakukan intervensi retensi lebih cepat dan lebih tepat sasaran.
 
 ---
 
 ## 💡 Solusi Machine Learning
 
 ### Pendekatan
-Membangun **Binary Classification model** menggunakan TensorFlow/Keras yang terintegrasi dalam **TFX Pipeline** untuk memprediksi apakah seorang pelanggan akan churn (1) atau tidak (0) berdasarkan fitur perilaku dan demografis mereka.
+Membangun **Binary Classification model** menggunakan TensorFlow/Keras yang diorkestrasi melalui **TFX Pipeline**. Pendekatan ini dipilih karena data churn bersifat tabular dan memiliki relasi non-linear antarfitur, sehingga model neural network lebih fleksibel dibandingkan aturan manual atau model linear sederhana. Integrasi dengan TFX juga memastikan preprocessing, evaluasi, dan deployment berjalan konsisten dari ujung ke ujung.
+
+Keunggulan pendekatan ini pada konteks proyek ini:
+- Mampu menangkap interaksi non-linear antarfitur numerik dan kategorikal.
+- Cocok untuk data tabular dengan fitur campuran yang sudah dibersihkan dan ditransformasi.
+- Mendukung pipeline produksi yang repeatable melalui TFX dan Apache Beam.
+- Menjaga proses training dan validasi tetap seragam saat model diperbarui.
 
 ### Target yang Ingin Dicapai
 
@@ -91,32 +104,31 @@ Membangun **Binary Classification model** menggunakan TensorFlow/Keras yang teri
 
 ### Pengolahan Data (Transform Component)
 
+Pipeline ini menggunakan **18 fitur input** yang terdiri dari **13 fitur numerik** dan **5 fitur kategorikal**. Data dibagi menggunakan **hash-based splitting** menjadi **80% training** dan **20% evaluation** agar hasil pembagian lebih reproducible.
+
 1. **Normalisasi Fitur Numerik:** Z-score normalization (`tft.scale_to_z_score`) untuk semua 13 fitur numerik agar model konvergen lebih cepat
 2. **Encoding Fitur Kategorik:** Vocabulary lookup (`tft.compute_and_apply_vocabulary`) + Embedding layer untuk representasi yang lebih kaya
 3. **Handling Missing Values:** Otomatis ditangani oleh TFX Transform dengan nilai default
 4. **Data Split:** 80% training, 20% evaluasi (hash-based splitting untuk reproducibility)
 
+Metode preprocessing ini dipilih karena data churn bersifat heterogen: fitur numerik perlu distandardisasi agar skala antarfitur konsisten, sedangkan fitur kategorikal perlu diubah menjadi representasi numerik agar bisa dipelajari model. Pendekatan ini juga menjaga pipeline tetap seragam antara training dan inference.
+
 ### Arsitektur Model (Neural Network)
 
-```
-Input Layer (Numerik: 13 fitur) ──┐
-Input Layer (Kategorik: 5 fitur) → Embedding(vocab_size, 16) ──┤
-                                                                 ├→ Concatenate
-                                                                 ↓
-                                                          Dense(256, ReLU)
-                                                                 ↓
-                                                          Dropout(0.3)
-                                                                 ↓
-                                                          Dense(128, ReLU)
-                                                                 ↓
-                                                          Dropout(0.3)
-                                                                 ↓
-                                                           Dense(64, ReLU)
-                                                                 ↓
-                                                        Dense(1, Sigmoid)
-                                                                 ↓
-                                                       Output: P(Churn)
-```
+Arsitektur model yang digunakan adalah multilayer perceptron untuk klasifikasi biner dengan konfigurasi berikut:
+
+| Bagian | Detail |
+|---|---|
+| Input numerik | 13 fitur numerik |
+| Input kategorikal | 5 fitur kategorikal |
+| Embedding | Dimensi 16 untuk tiap representasi kategorikal |
+| Dense 1 | 256 neuron, aktivasi ReLU |
+| Dropout 1 | 0.3 |
+| Dense 2 | 128 neuron, aktivasi ReLU |
+| Dropout 2 | 0.3 |
+| Dense 3 | 64 neuron, aktivasi ReLU |
+| Output | 1 neuron, aktivasi Sigmoid |
+| Batch Normalization | Tidak digunakan |
 
 **Hyperparameter:**
 - Optimizer: Adam (learning_rate=0.001)
@@ -124,6 +136,8 @@ Input Layer (Kategorik: 5 fitur) → Embedding(vocab_size, 16) ──┤
 - Batch Size: 64
 - Max Epochs: 10 (dengan Early Stopping patience=3)
 - Regularisasi: Dropout(0.3)
+
+Konfigurasi ini dipilih untuk menjaga model tetap cukup ekspresif tanpa menjadi terlalu kompleks untuk data tabular ukuran menengah. Dropout membantu mengurangi overfitting, sementara output sigmoid sesuai untuk probabilitas churn.
 
 ### Metrik Evaluasi
 
@@ -157,31 +171,65 @@ Setelah pipeline dijalankan, berikut hasil evaluasi model pada data test:
 
 ### Opsi Deployment
 
-**Platform yang Digunakan: Railway**
+**Platform yang Digunakan: Hugging Face Spaces**
 
-Railway dipilih sebagai platform cloud karena:
-- Gratis untuk project skala kecil-menengah
-- Mendukung deployment Docker container langsung
-- Mudah dikonfigurasi dengan `railway.toml`
-- Mendukung custom domain dan HTTPS otomatis
+Hugging Face Spaces dipilih karena kemudahan deploy aplikasi Gradio/Streamlit, integrasi CI dengan repositori Spaces, dan kemampuan untuk menyertakan artefak model (mis. `serving_model/`) langsung di repo Space.
 
-### Cara Deploy ke Railway
+### Cara Deploy ke Hugging Face Spaces
+
+Langkah singkat untuk men-deploy aplikasi Anda ke Hugging Face Spaces menggunakan Git (direkomendasikan):
+
+1. Buat Space baru di https://huggingface.co/spaces (pilih `Gradio` sebagai SDK) atau lewat CLI:
 
 ```bash
-# 1. Install Railway CLI
-npm i -g @railway/cli
+# (opsional) install CLI
+pip install huggingface_hub
 
-# 2. Login ke Railway
-railway login
+# login (akan membuka browser untuk autentikasi)
+hf login
 
-# 3. Inisialisasi project
-railway init
+# buat repo Space (ganti <username> dan <space-name>)
+hf repo create <username>/<space-name> --type=space
 
-# 4. Deploy
-railway up
+# clone repo Space yang baru dibuat
+git clone https://huggingface.co/spaces/<username>/<space-name>
+cd <space-name>
+```
 
-# 5. Buka URL
-railway open
+2. Salin isi proyek Anda ke direktori Space (pastikan folder `serving_model/` ikut disertakan). Periksa `.dockerignore` agar tidak mengecualikan `serving_model/`.
+
+```bash
+# dari root proyek
+cp -r . ../<space-name>/
+cd ../<space-name>
+git add .
+git commit -m "Deploy to Hugging Face Space"
+git push
+```
+
+3. Jika Space bersifat private, Anda dapat menguji endpoint dengan `HF_TOKEN` (personal access token) atau menggunakan `hf login` pada mesin yang menjalankan tes.
+
+4. Alternatif: gunakan upload via web UI (drag & drop) atau alat `hf`/`huggingface-cli` untuk operasi non-git, tetapi alur Git memberi versi dan rollback yang jelas.
+
+5. Pastikan file frontmatter di `README.md` menyertakan `python_version` dan `sdk: gradio` sehingga runtime Spaces menggunakan versi Python yang sesuai.
+
+Contoh pengecekan endpoint setelah deploy (menggunakan `gradio_client` atau curl):
+
+```python
+from gradio_client import Client
+client = Client("https://<space-name>.hf.space", token="HF_TOKEN_IF_PRIVATE")
+print(client.view_api())
+res = client.predict(*[...], api_name="/predict_churn")
+print(res)
+```
+
+atau curl (jika menggunakan route run/embed dan token):
+
+```bash
+curl -X POST "https://<space-name>.hf.space/run/predict_churn" \
+  -H "Authorization: Bearer $HF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"data":[[...]]}'
 ```
 
 ### Struktur Serving
@@ -190,47 +238,27 @@ Model di-serve menggunakan **TensorFlow Serving** via Docker:
 - **REST API:** `POST /v1/models/ecommerce_churn:predict`
 - **Port:** 8501
 
-**Contoh Request:**
+**Contoh Request (Hugging Face Spaces / Gradio API):**
+
+Jika Anda sudah men-deploy ke Hugging Face Spaces, contoh pemanggilan via `gradio_client` telah dicontohkan di atas. Contoh `curl` untuk route `run` (butuh token jika Space private):
+
 ```bash
-curl -X POST https://<railway-url>/v1/models/ecommerce_churn:predict \
+curl -X POST "https://<space-name>.hf.space/run/predict_churn" \
+  -H "Authorization: Bearer $HF_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "instances": [{
-      "Tenure": 5,
-      "CityTier": 1,
-      "WarehouseToHome": 30,
-      "HourSpendOnApp": 3,
-      "NumberOfDeviceRegistered": 4,
-      "PreferredLoginDevice": "Mobile Phone",
-      "PreferredPaymentMode": "Debit Card",
-      "Gender": "Male",
-      "PreferedOrderCat": "Mobile Phone",
-      "SatisfactionScore": 2,
-      "MaritalStatus": "Single",
-      "NumberOfAddress": 5,
-      "Complain": 1,
-      "OrderAmountHikeFromlastYear": 15,
-      "CouponUsed": 2,
-      "OrderCount": 3,
-      "DaySinceLastOrder": 10,
-      "CashbackAmount": 150.5
-    }]
-  }'
+  -d '{"data":[[5,1,30,3,4,2,5,1,15,2,3,10,150.5,"Mobile Phone","Debit Card","Male","Mobile Phone","Single"]]}'
 ```
 
 **Contoh Response:**
+
 ```json
-{
-  "predictions": [[0.823]]
-}
+{"prediction": {"probability": 0.823, "prediction": "Churn"}}
 ```
 > Nilai 0.823 artinya 82.3% probabilitas pelanggan akan churn.
 
 ### 🌐 Web App URL
 
-> **URL Railway:** `https://rfahrur6045-churn-serving.up.railway.app`
->
-> *(Ganti dengan URL aktual setelah deployment)*
+> **URL Hugging Face Space:** `https://rfahrur6045-mlops-final.hf.space`
 
 ---
 
@@ -242,13 +270,13 @@ Sistem monitoring dijalankan menggunakan **Prometheus** + **Grafana** via Docker
 
 ```bash
 # Jalankan monitoring stack
-docker-compose up -d prometheus grafana node-exporter
+docker compose up -d tf-serving prometheus grafana node-exporter
 
 # Akses Prometheus
-open http://localhost:9090
+# http://localhost:9090
 
 # Akses Grafana
-open http://localhost:3000  # admin/admin123
+# http://localhost:3000  # user: admin / password: admin123
 ```
 
 ### Metrics yang Dipantau
@@ -259,6 +287,19 @@ open http://localhost:3000  # admin/admin123
 | **Latency** | `tensorflow_serving_request_latency_count` | Waktu respons API |
 | **Error Rate** | `rate(tensorflow_serving_request_count{status="error"}[5m])` | Persentase error |
 | **Model Uptime** | `up{job="tensorflow-serving"}` | Ketersediaan model |
+
+### Dashboard Grafana yang Disarankan
+
+Gunakan dashboard berisi panel berikut agar sesuai dengan proyek ini:
+
+| Panel | Query |
+|---|---|
+| **Model Uptime** | `up{job="tensorflow-serving"}` |
+| **Request Rate** | `rate(tensorflow_serving_request_count[5m])` |
+| **Latency** | `tensorflow_serving_request_latency_count` |
+| **Error Rate** | `rate(tensorflow_serving_request_count{status="error"}[5m])` |
+
+Login Grafana menggunakan `admin / admin123`, lalu buat dashboard baru dan tambahkan 4 panel di atas.
 
 ### Alert Rules
 
@@ -283,15 +324,20 @@ Berdasarkan monitoring yang dilakukan:
 rfahrur6045-pipeline/
 ├── notebook/
 │   └── rfahrur6045_pipeline.ipynb    # Main TFX pipeline notebook
+├── pipelines/
+│   └── rfahrur6045-pipeline/         # Artefak pipeline hasil Apache Beam
 ├── serving/
 │   └── Dockerfile                     # Docker config untuk TF Serving
 ├── monitoring/
 │   ├── prometheus.yml                 # Konfigurasi Prometheus
 │   └── alert_rules.yml               # Alert rules
 ├── docker-compose.yml                 # Stack monitoring lokal
-├── railway.toml                       # Konfigurasi Railway deployment
+├── serving_model/
+│   └── rfahrur6045-pipeline/         # Model hasil push dari Pusher
 └── README.md                          # Dokumentasi ini
 ```
+
+Folder `rfahrur6045-pipeline/` di root tidak dilampirkan karena tidak digunakan; artefak pipeline yang benar berada di `pipelines/rfahrur6045-pipeline/`.
 
 ---
 
@@ -299,8 +345,8 @@ rfahrur6045-pipeline/
 
 ### Prasyarat
 - Python 3.9+
-- Docker & Docker Compose
-- Railway CLI
+- Docker & Docker Compose (jika menjalankan TF Serving / monitoring lokal)
+- `huggingface_hub` CLI (`hf`) untuk autentikasi dan manajemen Space (opsional jika menggunakan web UI)
 - TFX 1.14.0
 
 ### Langkah-langkah
@@ -316,9 +362,13 @@ pip install tfx==1.14.0 tensorflow==2.12.0
 # 3. Jalankan notebook
 jupyter notebook notebook/rfahrur6045_pipeline.ipynb
 
-# 4. Deploy ke Railway (setelah model tersimpan)
-railway login
-railway up
+# 4. Deploy ke Hugging Face Spaces (setelah model tersimpan)
+# Jika belum membuat Space via web UI, gunakan CLI contoh:
+hf login
+# (opsional) buat repo Space dan push hasil build
+hf repo create <username>/<space-name> --type=space
+git remote add hf https://huggingface.co/spaces/<username>/<space-name>
+git push hf main
 
 # 5. Jalankan monitoring
 docker-compose up -d
@@ -331,6 +381,6 @@ docker-compose up -d
 - [TFX Documentation](https://www.tensorflow.org/tfx)
 - [Apache Beam Documentation](https://beam.apache.org/)
 - [TensorFlow Serving](https://www.tensorflow.org/tfx/guide/serving)
-- [Railway Documentation](https://docs.railway.app/)
+- [Hugging Face Spaces Documentation](https://huggingface.co/docs/spaces)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Dataset - Kaggle](https://www.kaggle.com/datasets/ankitverma2010/ecommerce-customer-churn-analysis-and-prediction)
