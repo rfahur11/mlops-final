@@ -22,6 +22,17 @@ license: mit
 
 ## 📋 Informasi Dataset
 
+Dataset yang digunakan adalah data tabular terstruktur untuk prediksi churn pelanggan e-commerce. Ruang lingkup datanya sebagai berikut:
+
+| Informasi | Detail |
+|---|---|
+| Jumlah data | 5.630 baris |
+| Jumlah fitur input | 18 fitur |
+| Fitur numerik | 13 |
+| Fitur kategorikal | 5 |
+| Fitur teks | Tidak ada |
+| Target | `Churn` |
+
 | Atribut | Detail |
 |---|---|
 | **Nama Dataset** | E-Commerce Customer Churn Analysis and Prediction |
@@ -59,22 +70,24 @@ license: mit
 
 ## 🎯 Persoalan yang Ingin Diselesaikan
 
-**Customer churn** (hilangnya pelanggan) merupakan salah satu tantangan terbesar dalam bisnis e-commerce. Setiap pelanggan yang churn berarti kerugian pendapatan dan meningkatnya biaya akuisisi pelanggan baru (yang bisa 5-7x lebih mahal dari mempertahankan pelanggan lama).
+Customer churn adalah masalah bisnis yang langsung berdampak pada pendapatan, biaya akuisisi, dan efektivitas kampanye retensi. Jika pelanggan berisiko tinggi tidak terdeteksi sejak awal, perusahaan akan terus mengeluarkan biaya promosi yang tidak tepat sasaran dan kehilangan pelanggan yang sebenarnya masih bisa dipertahankan.
 
-**Permasalahan Bisnis:**
-- Perusahaan e-commerce kehilangan ~17% pelanggannya setiap periode
-- Tidak ada sistem otomatis untuk mengidentifikasi pelanggan yang berpotensi churn lebih awal
-- Tim marketing kesulitan menentukan target intervensi retensi yang tepat
+Karakteristik data pada kasus ini membuat masalahnya tidak sederhana: kombinasi fitur numerik dan kategorikal perlu diproses secara konsisten, sementara pola churn sering muncul dari interaksi non-linear antarfitur, bukan dari satu variabel saja. Karena itu, otomatisasi pipeline diperlukan agar proses training, validasi, dan deployment selalu berjalan dengan langkah yang sama, bisa diulang, dan tetap skalabel saat data bertambah.
 
-**Tujuan:**
-Membangun sistem prediksi churn yang akurat untuk mengidentifikasi pelanggan berisiko tinggi meninggalkan platform, sehingga tim bisnis dapat melakukan intervensi proaktif (diskon, program loyalitas, dll) sebelum pelanggan benar-benar pergi.
+**Tujuan utama:** membangun sistem yang mampu mengidentifikasi pelanggan berisiko churn secara konsisten sehingga tim bisnis dapat melakukan intervensi retensi lebih cepat dan lebih tepat sasaran.
 
 ---
 
 ## 💡 Solusi Machine Learning
 
 ### Pendekatan
-Membangun **Binary Classification model** menggunakan TensorFlow/Keras yang terintegrasi dalam **TFX Pipeline** untuk memprediksi apakah seorang pelanggan akan churn (1) atau tidak (0) berdasarkan fitur perilaku dan demografis mereka.
+Membangun **Binary Classification model** menggunakan TensorFlow/Keras yang diorkestrasi melalui **TFX Pipeline**. Pendekatan ini dipilih karena data churn bersifat tabular dan memiliki relasi non-linear antarfitur, sehingga model neural network lebih fleksibel dibandingkan aturan manual atau model linear sederhana. Integrasi dengan TFX juga memastikan preprocessing, evaluasi, dan deployment berjalan konsisten dari ujung ke ujung.
+
+Keunggulan pendekatan ini pada konteks proyek ini:
+- Mampu menangkap interaksi non-linear antarfitur numerik dan kategorikal.
+- Cocok untuk data tabular dengan fitur campuran yang sudah dibersihkan dan ditransformasi.
+- Mendukung pipeline produksi yang repeatable melalui TFX dan Apache Beam.
+- Menjaga proses training dan validasi tetap seragam saat model diperbarui.
 
 ### Target yang Ingin Dicapai
 
@@ -91,32 +104,31 @@ Membangun **Binary Classification model** menggunakan TensorFlow/Keras yang teri
 
 ### Pengolahan Data (Transform Component)
 
+Pipeline ini menggunakan **18 fitur input** yang terdiri dari **13 fitur numerik** dan **5 fitur kategorikal**. Data dibagi menggunakan **hash-based splitting** menjadi **80% training** dan **20% evaluation** agar hasil pembagian lebih reproducible.
+
 1. **Normalisasi Fitur Numerik:** Z-score normalization (`tft.scale_to_z_score`) untuk semua 13 fitur numerik agar model konvergen lebih cepat
 2. **Encoding Fitur Kategorik:** Vocabulary lookup (`tft.compute_and_apply_vocabulary`) + Embedding layer untuk representasi yang lebih kaya
 3. **Handling Missing Values:** Otomatis ditangani oleh TFX Transform dengan nilai default
 4. **Data Split:** 80% training, 20% evaluasi (hash-based splitting untuk reproducibility)
 
+Metode preprocessing ini dipilih karena data churn bersifat heterogen: fitur numerik perlu distandardisasi agar skala antarfitur konsisten, sedangkan fitur kategorikal perlu diubah menjadi representasi numerik agar bisa dipelajari model. Pendekatan ini juga menjaga pipeline tetap seragam antara training dan inference.
+
 ### Arsitektur Model (Neural Network)
 
-```
-Input Layer (Numerik: 13 fitur) ──┐
-Input Layer (Kategorik: 5 fitur) → Embedding(vocab_size, 16) ──┤
-                                                                 ├→ Concatenate
-                                                                 ↓
-                                                          Dense(256, ReLU)
-                                                                 ↓
-                                                          Dropout(0.3)
-                                                                 ↓
-                                                          Dense(128, ReLU)
-                                                                 ↓
-                                                          Dropout(0.3)
-                                                                 ↓
-                                                           Dense(64, ReLU)
-                                                                 ↓
-                                                        Dense(1, Sigmoid)
-                                                                 ↓
-                                                       Output: P(Churn)
-```
+Arsitektur model yang digunakan adalah multilayer perceptron untuk klasifikasi biner dengan konfigurasi berikut:
+
+| Bagian | Detail |
+|---|---|
+| Input numerik | 13 fitur numerik |
+| Input kategorikal | 5 fitur kategorikal |
+| Embedding | Dimensi 16 untuk tiap representasi kategorikal |
+| Dense 1 | 256 neuron, aktivasi ReLU |
+| Dropout 1 | 0.3 |
+| Dense 2 | 128 neuron, aktivasi ReLU |
+| Dropout 2 | 0.3 |
+| Dense 3 | 64 neuron, aktivasi ReLU |
+| Output | 1 neuron, aktivasi Sigmoid |
+| Batch Normalization | Tidak digunakan |
 
 **Hyperparameter:**
 - Optimizer: Adam (learning_rate=0.001)
@@ -124,6 +136,8 @@ Input Layer (Kategorik: 5 fitur) → Embedding(vocab_size, 16) ──┤
 - Batch Size: 64
 - Max Epochs: 10 (dengan Early Stopping patience=3)
 - Regularisasi: Dropout(0.3)
+
+Konfigurasi ini dipilih untuk menjaga model tetap cukup ekspresif tanpa menjadi terlalu kompleks untuk data tabular ukuran menengah. Dropout membantu mengurangi overfitting, sementara output sigmoid sesuai untuk probabilitas churn.
 
 ### Metrik Evaluasi
 
@@ -245,8 +259,6 @@ curl -X POST "https://<space-name>.hf.space/run/predict_churn" \
 ### 🌐 Web App URL
 
 > **URL Hugging Face Space:** `https://rfahrur6045-mlops-final.hf.space`
->
-> *(Ganti dengan URL Space Anda jika berbeda)*
 
 ---
 
@@ -312,14 +324,20 @@ Berdasarkan monitoring yang dilakukan:
 rfahrur6045-pipeline/
 ├── notebook/
 │   └── rfahrur6045_pipeline.ipynb    # Main TFX pipeline notebook
+├── pipelines/
+│   └── rfahrur6045-pipeline/         # Artefak pipeline hasil Apache Beam
 ├── serving/
 │   └── Dockerfile                     # Docker config untuk TF Serving
 ├── monitoring/
 │   ├── prometheus.yml                 # Konfigurasi Prometheus
 │   └── alert_rules.yml               # Alert rules
 ├── docker-compose.yml                 # Stack monitoring lokal
+├── serving_model/
+│   └── rfahrur6045-pipeline/         # Model hasil push dari Pusher
 └── README.md                          # Dokumentasi ini
 ```
+
+Folder `rfahrur6045-pipeline/` di root tidak dilampirkan karena tidak digunakan; artefak pipeline yang benar berada di `pipelines/rfahrur6045-pipeline/`.
 
 ---
 
