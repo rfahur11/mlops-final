@@ -19,7 +19,6 @@ __pycache__
 # Pipeline artifacts (dibuat saat runtime)
 pipelines/
 metadata/
-serving_model/
 
 # Node
 node_modules/
