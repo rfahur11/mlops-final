@@ -25,5 +25,6 @@ pylint==2.17.4
 future==0.18.3
 # Runtime for Hugging Face Spaces
 gradio>=3.36.0
+gradio-client>=0.2.9
 tensorflow>=2.12.0
 huggingface-hub>=0.15.0
